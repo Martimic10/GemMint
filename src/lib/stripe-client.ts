@@ -25,9 +25,17 @@ export async function startStripeCheckout(
     url?: string;
     sessionId?: string;
     error?: string;
+    debug?: Record<string, string | undefined>;
   };
   if (!res.ok || !data.url || !data.sessionId) {
-    throw new Error(data.error || "Could not start Stripe Checkout.");
+    const debugBits = data.debug
+      ? Object.entries(data.debug)
+          .filter(([, v]) => v)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(", ")
+      : "";
+    const base = data.error || "Could not start Stripe Checkout.";
+    throw new Error(debugBits ? `${base} (${debugBits})` : base);
   }
   return { url: data.url, sessionId: data.sessionId };
 }

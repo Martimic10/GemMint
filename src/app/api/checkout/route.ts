@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyFirebaseIdToken } from "@/lib/firebase-admin";
 import {
+  checkoutOrigin,
   getStripe,
   isStripeConfigured,
   isValidEmail,
   requirePackWithPrice,
-  siteUrl,
+  stripeSecretMode,
 } from "@/lib/stripe";
 
 export const runtime = "nodejs";
@@ -16,6 +17,10 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  let debugOrigin = "";
+  let debugPriceId = "";
+  let debugMode: string = stripeSecretMode();
+
   try {
     if (!isStripeConfigured()) {
       return NextResponse.json(
@@ -62,18 +67,32 @@ export async function POST(request: Request) {
     }
 
     const { pack, priceId } = requirePackWithPrice(parsed.data.packId);
-    const origin = siteUrl();
+    debugPriceId = priceId;
+    const origin = checkoutOrigin(request);
+    debugOrigin = origin;
+    debugMode = stripeSecretMode();
+
+    if (debugMode === "live" && /localhost|127\.0\.0\.1/i.test(origin)) {
+      return NextResponse.json(
+        {
+          error:
+            "Live Stripe keys cannot use localhost return URLs. Set NEXT_PUBLIC_SITE_URL=https://gem-mint-teal.vercel.app in Vercel Production, then redeploy.",
+          debug: { origin, mode: debugMode },
+        },
+        { status: 400 }
+      );
+    }
+
     const stripe = getStripe();
     const successUrl = `${origin}/dashboard?billing=success&session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${origin}/dashboard?billing=cancelled`;
 
-    const session = await stripe.checkout.sessions.create({
+    const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
       mode: "payment",
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: successUrl,
       cancel_url: cancelUrl,
       client_reference_id: uid,
-      ...(isValidEmail(email) ? { customer_email: email.trim() } : {}),
       metadata: {
         firebaseUid: uid,
         packId: pack.id,
@@ -87,7 +106,13 @@ export async function POST(request: Request) {
         },
       },
       allow_promotion_codes: true,
-    });
+    };
+
+    if (isValidEmail(email)) {
+      sessionParams.customer_email = email.trim();
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     if (!session.url) {
       return NextResponse.json(
@@ -104,23 +129,57 @@ export async function POST(request: Request) {
     console.error("Checkout error:", error);
     let message =
       error instanceof Error ? error.message : "Could not start checkout.";
+    let stripeType: string | undefined;
+    let stripeCode: string | undefined;
+    let stripeParam: string | undefined;
 
-    // Stripe SDK errors often nest the useful text.
-    if (error && typeof error === "object" && "raw" in error) {
-      const raw = (error as { raw?: { message?: string } }).raw;
-      if (raw?.message) message = raw.message;
+    if (error && typeof error === "object") {
+      const err = error as {
+        raw?: { message?: string; type?: string; code?: string; param?: string };
+        type?: string;
+        code?: string;
+        param?: string;
+      };
+      if (err.raw?.message) message = err.raw.message;
+      stripeType = err.raw?.type ?? err.type;
+      stripeCode = err.raw?.code ?? err.code;
+      stripeParam = err.raw?.param ?? err.param;
     }
-    if (message === "The string did not match the expected pattern.") {
-      message =
-        "Checkout rejected a URL, email, or Price ID format. Confirm NEXT_PUBLIC_SITE_URL is https://gem-mint-teal.vercel.app (no quotes) and each STRIPE_PRICE_* value is a price_… ID from the same mode as STRIPE_SECRET_KEY, then redeploy.";
+
+    if (
+      message === "The string did not match the expected pattern." ||
+      /did not match the expected pattern/i.test(message)
+    ) {
+      message = [
+        "Stripe rejected a checkout field format.",
+        `Return URL in use: ${debugOrigin || "(unknown)"}.`,
+        `Secret key mode: ${debugMode}.`,
+        `Price: ${debugPriceId ? `${debugPriceId.slice(0, 14)}…` : "(unknown)"}.`,
+        "Fix: set NEXT_PUBLIC_SITE_URL=https://gem-mint-teal.vercel.app in Vercel (Production), make sure Price IDs are from the same test/live mode as STRIPE_SECRET_KEY, redeploy, then try again.",
+      ].join(" ");
     }
 
     const status =
       message.includes("Price ID") ||
       message.includes("No such price") ||
-      message.includes("NEXT_PUBLIC_SITE_URL")
+      message.includes("NEXT_PUBLIC_SITE_URL") ||
+      message.includes("localhost")
         ? 400
         : 500;
-    return NextResponse.json({ error: message }, { status });
+
+    return NextResponse.json(
+      {
+        error: message,
+        debug: {
+          origin: debugOrigin || undefined,
+          mode: debugMode,
+          pricePrefix: debugPriceId ? debugPriceId.slice(0, 14) : undefined,
+          stripeType,
+          stripeCode,
+          stripeParam,
+        },
+      },
+      { status }
+    );
   }
 }

@@ -145,9 +145,60 @@ export function siteUrl(): string {
   }
 }
 
+/** Prefer the browser Origin on Vercel so a leftover localhost SITE_URL can't break Checkout. */
+export function checkoutOrigin(request: Request): string {
+  const originHeader = cleanEnv(request.headers.get("origin"));
+  if (originHeader) {
+    try {
+      const parsed = new URL(originHeader);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        const host = parsed.host.toLowerCase();
+        if (!host.includes("localhost") && host !== "127.0.0.1") {
+          return `${parsed.protocol}//${parsed.host}`;
+        }
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  const referer = cleanEnv(request.headers.get("referer"));
+  if (referer) {
+    try {
+      const parsed = new URL(referer);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        const host = parsed.host.toLowerCase();
+        if (!host.includes("localhost") && host !== "127.0.0.1") {
+          return `${parsed.protocol}//${parsed.host}`;
+        }
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  const forwardedHost = cleanEnv(request.headers.get("x-forwarded-host"));
+  const forwardedProto = cleanEnv(request.headers.get("x-forwarded-proto")) || "https";
+  if (forwardedHost && !forwardedHost.includes("localhost")) {
+    const host = forwardedHost.split(",")[0]?.trim();
+    if (host) return `${forwardedProto}://${host}`;
+  }
+
+  return siteUrl();
+}
+
+export function stripeSecretMode(): "test" | "live" | "unknown" {
+  const key = cleanEnv(process.env.STRIPE_SECRET_KEY);
+  if (key.startsWith("sk_live_")) return "live";
+  if (key.startsWith("sk_test_")) return "test";
+  return "unknown";
+}
+
 export function isValidEmail(value: string | undefined | null): value is string {
   if (!value) return false;
   const email = value.trim();
   // Practical email check — empty/garbage emails make Stripe throw pattern errors.
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
+
+export { cleanEnv, PRICE_ENV_BY_PACK };
