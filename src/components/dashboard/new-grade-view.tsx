@@ -457,7 +457,7 @@ export function NewGradeView({ onComplete, onGoBilling }: NewGradeViewProps) {
             <GradeSummary report={report} />
 
             <div className="overflow-hidden rounded-[1.5rem] border border-border bg-surface shadow-[0_1px_2px_rgba(17,24,39,0.04)]">
-              <div className="flex gap-1 overflow-x-auto border-b border-border px-3 sm:px-4">
+              <div className="relative z-10 flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-surface px-3 sm:px-4">
                 {REPORT_TABS.map((t) => (
                   <button
                     key={t.id}
@@ -475,7 +475,7 @@ export function NewGradeView({ onComplete, onGoBilling }: NewGradeViewProps) {
                 ))}
               </div>
 
-              <div className="p-5 sm:p-6">
+              <div className="p-5 pt-6 sm:p-6">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={reportTab}

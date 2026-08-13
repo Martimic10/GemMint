@@ -41,11 +41,16 @@ interface DayPoint {
   names: string[];
 }
 
-const RANGES: { id: RangeKey; label: string; days: number }[] = [
-  { id: "year", label: "12 months", days: 365 },
-  { id: "quarter", label: "3 months", days: 90 },
-  { id: "month", label: "30 days", days: 30 },
-  { id: "week", label: "7 days", days: 7 },
+const RANGES: {
+  id: RangeKey;
+  label: string;
+  shortLabel: string;
+  days: number;
+}[] = [
+  { id: "year", label: "12 months", shortLabel: "1Y", days: 365 },
+  { id: "quarter", label: "3 months", shortLabel: "3M", days: 90 },
+  { id: "month", label: "30 days", shortLabel: "30D", days: 30 },
+  { id: "week", label: "7 days", shortLabel: "7D", days: 7 },
 ];
 
 const REC_OPTIONS: { id: RecFilter; label: string }[] = [
@@ -66,12 +71,27 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
 export function CollectionChart({
   grades,
   collectionValue,
   cardsGraded,
   averageGrade,
 }: CollectionChartProps) {
+  const isMobile = useIsMobile();
   const [range, setRange] = useState<RangeKey>("month");
   const [metric, setMetric] = useState<MetricKey>("portfolio");
   const [category, setCategory] = useState<string>("all");
@@ -110,13 +130,22 @@ export function CollectionChart({
         buildSeries(filteredGrades, {
           dayCount: rangeDays,
           rangeKey: range,
+          compact: isMobile,
           // Only sync ending value to global total when viewing the full portfolio.
           syncEndValue:
             category === "all" && recommendation === "all"
               ? collectionValue
               : null,
         }),
-      [filteredGrades, rangeDays, range, collectionValue, category, recommendation]
+      [
+        filteredGrades,
+        rangeDays,
+        range,
+        collectionValue,
+        category,
+        recommendation,
+        isMobile,
+      ]
     );
 
   useEffect(() => {
@@ -137,8 +166,13 @@ export function CollectionChart({
     };
   }, [filtersOpen]);
 
-  const tickGap =
-    points.length <= 8
+  const tickGap = isMobile
+    ? points.length <= 8
+      ? 12
+      : points.length <= 16
+        ? 28
+        : 40
+    : points.length <= 8
       ? 0
       : points.length <= 16
         ? 20
@@ -146,8 +180,13 @@ export function CollectionChart({
           ? 28
           : 40;
 
-  const maxBarSize =
-    points.length <= 8
+  const maxBarSize = isMobile
+    ? points.length <= 8
+      ? 28
+      : points.length <= 16
+        ? 18
+        : 12
+    : points.length <= 8
       ? 40
       : points.length <= 16
         ? 28
@@ -169,69 +208,43 @@ export function CollectionChart({
 
   return (
     <section className="overflow-hidden rounded-[1.5rem] border border-border bg-surface shadow-[0_1px_2px_rgba(17,24,39,0.04)]">
-      <div className="flex flex-col gap-4 px-5 pt-5 pb-2 sm:flex-row sm:items-start sm:justify-between sm:px-6 sm:pt-6">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">
-              Collection value
-            </h2>
-            {hasScans ? (
-              <span
-                className={cn(
-                  "text-sm font-semibold tabular-nums",
-                  deltaPositive ? "text-emerald" : "text-red-600"
-                )}
-              >
-                {deltaLabel}
-              </span>
-            ) : null}
-          </div>
-          {hasScans ? (
-            <p className="mt-1 text-2xl font-bold tracking-tight text-foreground tabular-nums sm:text-3xl">
-              ${displayValue.toLocaleString()}
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-muted">
-              Grade a card to start tracking value over time
-            </p>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div
-            className="inline-flex items-center rounded-lg border border-border bg-surface-muted/60 p-0.5"
-            role="group"
-            aria-label="Time range"
-          >
-            {RANGES.map((item) => {
-              const selected = range === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => setRange(item.id)}
+      <div className="flex flex-col gap-3 px-4 pt-4 pb-2 sm:gap-4 sm:px-6 sm:pt-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+              <h2 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
+                Collection value
+              </h2>
+              {hasScans ? (
+                <span
                   className={cn(
-                    "rounded-md px-2.5 py-1.5 text-xs font-semibold transition-all sm:px-3",
-                    selected
-                      ? "bg-surface text-foreground shadow-[0_1px_2px_rgba(17,24,39,0.08)] ring-1 ring-border"
-                      : "text-muted hover:text-foreground"
+                    "text-sm font-semibold tabular-nums",
+                    deltaPositive ? "text-emerald" : "text-red-600"
                   )}
                 >
-                  {item.label}
-                </button>
-              );
-            })}
+                  {deltaLabel}
+                </span>
+              ) : null}
+            </div>
+            {hasScans ? (
+              <p className="mt-1 text-2xl font-bold tracking-tight text-foreground tabular-nums sm:text-3xl">
+                ${displayValue.toLocaleString()}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-muted">
+                Grade a card to start tracking value over time
+              </p>
+            )}
           </div>
 
-          <div className="relative" ref={filtersRef}>
+          <div className="relative shrink-0" ref={filtersRef}>
             <button
               type="button"
               aria-expanded={filtersOpen}
               aria-haspopup="dialog"
               onClick={() => setFiltersOpen((v) => !v)}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-[0_1px_2px_rgba(17,24,39,0.04)] transition-colors",
+                "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold shadow-[0_1px_2px_rgba(17,24,39,0.04)] transition-colors sm:px-3",
                 activeFilterCount > 0 || filtersOpen
                   ? "border-emerald/40 bg-emerald/10 text-emerald"
                   : "border-border bg-surface text-foreground hover:bg-card"
@@ -246,7 +259,7 @@ export function CollectionChart({
               ) : null}
             </button>
             {filtersOpen ? (
-              <div className="absolute top-full right-0 z-20 mt-1.5 w-56 overflow-hidden rounded-xl border border-border bg-surface py-2 shadow-[0_12px_40px_rgba(17,24,39,0.12)]">
+              <div className="absolute top-full right-0 z-20 mt-1.5 w-[min(16rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border bg-surface py-2 shadow-[0_12px_40px_rgba(17,24,39,0.12)]">
                 <FilterSection title="Chart">
                   {(
                     [
@@ -311,19 +324,53 @@ export function CollectionChart({
             ) : null}
           </div>
         </div>
+
+        <div
+          className="-mx-4 flex items-center gap-1 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] sm:mx-0 sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden"
+          role="group"
+          aria-label="Time range"
+        >
+          <div className="inline-flex min-w-0 items-center rounded-lg border border-border bg-surface-muted/60 p-0.5">
+            {RANGES.map((item) => {
+              const selected = range === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={selected}
+                  aria-label={item.label}
+                  onClick={() => setRange(item.id)}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all sm:px-3",
+                    selected
+                      ? "bg-surface text-foreground shadow-[0_1px_2px_rgba(17,24,39,0.08)] ring-1 ring-border"
+                      : "text-muted hover:text-foreground"
+                  )}
+                >
+                  <span className="sm:hidden">{item.shortLabel}</span>
+                  <span className="hidden sm:inline">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      <div className="relative px-1 pt-1 pb-1 sm:px-3 sm:pb-2">
+      <div className="relative px-0 pt-1 pb-1 sm:px-3 sm:pb-2">
         {hasScans ? (
           <ChartContainer
             config={chartConfig}
-            className="h-[280px] w-full sm:h-[320px]"
+            className="h-[240px] w-full touch-pan-y sm:h-[320px]"
           >
             <ComposedChart
               accessibilityLayer
               data={points}
-              margin={{ left: 8, right: 12, top: 16, bottom: 4 }}
-              barCategoryGap="22%"
+              margin={
+                isMobile
+                  ? { left: 0, right: 8, top: 12, bottom: 0 }
+                  : { left: 8, right: 12, top: 16, bottom: 4 }
+              }
+              barCategoryGap={isMobile ? "18%" : "22%"}
             >
               <defs>
                 <linearGradient id="collectionFill" x1="0" y1="0" x2="0" y2="1">
@@ -345,18 +392,25 @@ export function CollectionChart({
                 dataKey="label"
                 tickLine={false}
                 axisLine={false}
-                tickMargin={12}
+                tickMargin={isMobile ? 8 : 12}
                 minTickGap={tickGap}
                 interval="preserveStartEnd"
-                tick={{ fill: "var(--muted)", fontSize: 12 }}
+                tick={{
+                  fill: "var(--muted)",
+                  fontSize: isMobile ? 10 : 12,
+                }}
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
-                width={48}
-                tickMargin={6}
+                width={isMobile ? 36 : 48}
+                tickMargin={4}
+                tickCount={isMobile ? 4 : undefined}
                 domain={[0, Math.ceil(yMax * 1.12)]}
-                tick={{ fill: "var(--muted)", fontSize: 11 }}
+                tick={{
+                  fill: "var(--muted)",
+                  fontSize: isMobile ? 10 : 11,
+                }}
                 tickFormatter={(v: number) => formatAxisMoney(v)}
               />
               <ChartTooltip
@@ -383,7 +437,7 @@ export function CollectionChart({
                     dataKey="added"
                     fill="url(#addedBar)"
                     radius={[999, 999, 0, 0]}
-                    maxBarSize={Math.min(maxBarSize, 18)}
+                    maxBarSize={Math.min(maxBarSize, isMobile ? 14 : 18)}
                     isAnimationActive
                     animationDuration={400}
                   />
@@ -391,10 +445,10 @@ export function CollectionChart({
                     type="monotone"
                     dataKey="value"
                     stroke="#16A34A"
-                    strokeWidth={2.5}
+                    strokeWidth={isMobile ? 2 : 2.5}
                     dot={false}
                     activeDot={{
-                      r: 5,
+                      r: isMobile ? 6 : 5,
                       fill: "#16A34A",
                       stroke: "#fff",
                       strokeWidth: 2,
@@ -421,24 +475,26 @@ export function CollectionChart({
       </div>
 
       {hasScans ? (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 pb-4 text-xs text-muted sm:px-6">
-          {metric === "portfolio" ? (
-            <>
+        <div className="flex flex-col gap-2 px-4 pb-4 text-xs text-muted sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1.5 sm:px-6">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            {metric === "portfolio" ? (
+              <>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald" />
+                  Portfolio
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-sm bg-royal" />
+                  Value added
+                </span>
+              </>
+            ) : (
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-emerald" />
-                Portfolio
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-sm bg-royal" />
                 Value added
               </span>
-            </>
-          ) : (
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald" />
-              Value added
-            </span>
-          )}
+            )}
+          </div>
           <span className="sm:ml-auto">
             {footerCards} card{footerCards === 1 ? "" : "s"} in range · avg PSA{" "}
             {footerAvg.toFixed(1)}
@@ -516,7 +572,7 @@ function DarkChartTooltip({
   if (!row) return null;
 
   return (
-    <div className="min-w-[10.5rem] rounded-lg bg-[#111827] px-3 py-2.5 text-xs text-white shadow-[0_12px_32px_rgba(17,24,39,0.28)] dark:bg-[#020617]">
+    <div className="min-w-[9.5rem] max-w-[min(16rem,calc(100vw-2rem))] rounded-lg bg-[#111827] px-3 py-2.5 text-xs text-white shadow-[0_12px_32px_rgba(17,24,39,0.28)] dark:bg-[#020617]">
       <p className="font-semibold tracking-tight text-white">{row.date}</p>
       <div className="mt-2 space-y-1.5 text-[11px] text-white/75">
         <p className="flex items-center justify-between gap-6">
@@ -552,7 +608,7 @@ function DarkChartTooltip({
 
 function EmptyChart() {
   return (
-    <div className="relative flex h-[280px] flex-col items-center justify-center px-6 text-center sm:h-[320px]">
+    <div className="relative flex h-[240px] flex-col items-center justify-center px-6 text-center sm:h-[320px]">
       <div className="flex h-28 items-end gap-1 opacity-35">
         {[38, 62, 45, 78, 52, 70, 42, 88, 58, 74, 48, 66].map((h, i) => (
           <span
@@ -578,6 +634,7 @@ function buildSeries(
   opts: {
     dayCount: number;
     rangeKey: RangeKey;
+    compact?: boolean;
     syncEndValue: number | null;
   }
 ) {
@@ -592,9 +649,21 @@ function buildSeries(
   const today = startOfDay(new Date());
   const start = addDays(today, -(opts.dayCount - 1));
 
-  // Bucket size: keep longer ranges readable without collapsing the window.
+  // Bucket size: keep longer ranges readable; on mobile, coarsen 30D/90D further.
   const stepDays =
-    opts.rangeKey === "year" ? 7 : opts.rangeKey === "quarter" ? 3 : 1;
+    opts.rangeKey === "year"
+      ? opts.compact
+        ? 14
+        : 7
+      : opts.rangeKey === "quarter"
+        ? opts.compact
+          ? 7
+          : 3
+        : opts.rangeKey === "month"
+          ? opts.compact
+            ? 3
+            : 1
+          : 1;
 
   const buckets = buildBucketStarts(start, today, stepDays);
 

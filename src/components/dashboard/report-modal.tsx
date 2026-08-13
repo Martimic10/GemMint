@@ -117,7 +117,7 @@ export function ReportModal({
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             className="relative z-10 flex max-h-[min(92vh,100dvh)] w-full max-w-5xl flex-col overflow-hidden rounded-t-[1.75rem] border border-border bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_24px_80px_rgba(17,24,39,0.18)] sm:max-h-[92vh] sm:rounded-[1.75rem] sm:pb-0"
           >
-            <div className="flex items-start justify-between gap-4 px-5 py-4 sm:px-6">
+            <div className="flex shrink-0 items-start justify-between gap-4 px-5 py-4 sm:px-6">
               <div>
                 <p className="text-xs font-semibold tracking-wide text-emerald uppercase">
                   Grading Report
@@ -155,7 +155,7 @@ export function ReportModal({
               </div>
             </div>
 
-            <div className="flex gap-1 overflow-x-auto border-b border-border px-4 sm:px-6">
+            <div className="relative z-20 flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-surface px-4 sm:px-6">
               {TABS.map((t) => (
                 <button
                   key={t.id}
@@ -173,8 +173,8 @@ export function ReportModal({
               ))}
             </div>
 
-            <div className="grid flex-1 overflow-y-auto lg:grid-cols-[280px_1fr]">
-              <div className="border-b border-border bg-card p-4 lg:border-r lg:border-b-0 lg:p-6">
+            <div className="grid min-h-0 flex-1 overflow-y-auto overscroll-contain lg:grid-cols-[280px_1fr]">
+              <div className="border-b border-border bg-card p-4 pt-5 lg:border-r lg:border-b-0 lg:p-6">
                 <ReportCardPreview grade={grade} tab={tab} rich={rich} />
                 <RecommendationBanner value={grade.recommendation} />
               </div>
@@ -193,7 +193,7 @@ export function ReportModal({
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-border bg-card/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className="flex shrink-0 flex-col gap-3 border-t border-border bg-card/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <p className="line-clamp-2 text-sm text-muted sm:line-clamp-none">
                 {grade.insight}
               </p>
