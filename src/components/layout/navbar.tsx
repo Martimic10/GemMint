@@ -11,7 +11,7 @@ import { NAV_LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
-  const { isSignedIn, loading, sessionHint } = useAuth();
+  const { isSignedIn, sessionHint } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -29,10 +29,9 @@ export function Navbar() {
     };
   }, [open]);
 
-  // Show Dashboard whenever Firebase says we're in, or while restoring a
-  // previously saved session hint (avoids a stuck Sign In button).
+  // Prefer Dashboard when signed in (or a restored session hint). Otherwise
+  // show Sign In immediately — never wait on Firebase with a blank skeleton.
   const showDashboard = isSignedIn || Boolean(sessionHint);
-  const showAuthSkeleton = loading && !showDashboard;
 
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-4 sm:px-6 sm:pt-5">
@@ -65,26 +64,17 @@ export function Navbar() {
           </nav>
 
           <div className="hidden items-center gap-2 md:flex">
-            {showAuthSkeleton ? (
-              <div className="h-9 w-[5.5rem] animate-pulse rounded-xl bg-card" />
-            ) : showDashboard ? (
-              <>
-                <Button size="sm" variant="secondary" asChild>
-                  <Link href="/demo">View Demo</Link>
-                </Button>
-                <Button size="sm" asChild>
-                  <Link href="/dashboard">Dashboard</Link>
-                </Button>
-              </>
+            <Button size="sm" variant="secondary" asChild>
+              <Link href="/demo">View Demo</Link>
+            </Button>
+            {showDashboard ? (
+              <Button size="sm" asChild>
+                <Link href="/dashboard">Dashboard</Link>
+              </Button>
             ) : (
-              <>
-                <Button size="sm" variant="secondary" asChild>
-                  <Link href="/demo">View Demo</Link>
-                </Button>
-                <Button size="sm" asChild>
-                  <Link href="/sign-in">Sign In</Link>
-                </Button>
-              </>
+              <Button size="sm" asChild>
+                <Link href="/sign-in">Sign In</Link>
+              </Button>
             )}
           </div>
 
@@ -120,34 +110,23 @@ export function Navbar() {
                   </Link>
                 ))}
                 <div className="mt-2 flex flex-col gap-2 border-t border-border pt-3">
-                  {showAuthSkeleton ? (
-                    <div className="h-11 animate-pulse rounded-2xl bg-card" />
-                  ) : showDashboard ? (
-                    <>
-                      <Button variant="secondary" asChild>
-                        <Link href="/demo" onClick={() => setOpen(false)}>
-                          View Demo
-                        </Link>
-                      </Button>
-                      <Button asChild>
-                        <Link href="/dashboard" onClick={() => setOpen(false)}>
-                          Dashboard
-                        </Link>
-                      </Button>
-                    </>
+                  <Button variant="secondary" asChild>
+                    <Link href="/demo" onClick={() => setOpen(false)}>
+                      View Demo
+                    </Link>
+                  </Button>
+                  {showDashboard ? (
+                    <Button asChild>
+                      <Link href="/dashboard" onClick={() => setOpen(false)}>
+                        Dashboard
+                      </Link>
+                    </Button>
                   ) : (
-                    <>
-                      <Button variant="secondary" asChild>
-                        <Link href="/demo" onClick={() => setOpen(false)}>
-                          View Demo
-                        </Link>
-                      </Button>
-                      <Button asChild>
-                        <Link href="/sign-in" onClick={() => setOpen(false)}>
-                          Sign In
-                        </Link>
-                      </Button>
-                    </>
+                    <Button asChild>
+                      <Link href="/sign-in" onClick={() => setOpen(false)}>
+                        Sign In
+                      </Link>
+                    </Button>
                   )}
                 </div>
               </div>
