@@ -71,7 +71,12 @@ export function requirePackWithPrice(packId: string): {
   const priceId = resolveStripePriceId(pack);
   if (!priceId) {
     throw new Error(
-      `Stripe Price ID missing for “${pack.name}”. Set ${PRICE_ENV_BY_PACK[pack.id]} in .env.local.`
+      `Stripe Price ID missing for “${pack.name}”. Set ${PRICE_ENV_BY_PACK[pack.id]} in Vercel env, then redeploy.`
+    );
+  }
+  if (!/^price_[A-Za-z0-9_]+$/.test(priceId)) {
+    throw new Error(
+      `Invalid Stripe Price ID for “${pack.name}” (${priceId.slice(0, 24)}…). Use the Price ID that starts with price_ (not prod_), with no quotes.`
     );
   }
   return { pack, priceId };
@@ -117,9 +122,32 @@ export async function resolvePackFromCheckoutSession(
 
 export function siteUrl(): string {
   const raw =
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-    process.env.VERCEL_URL?.trim() ||
+    cleanEnv(process.env.NEXT_PUBLIC_SITE_URL) ||
+    cleanEnv(process.env.VERCEL_URL) ||
     "http://localhost:3000";
-  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw.replace(/\/$/, "");
-  return `https://${raw.replace(/\/$/, "")}`;
+
+  const withProtocol =
+    raw.startsWith("http://") || raw.startsWith("https://")
+      ? raw
+      : `https://${raw}`;
+  const normalized = withProtocol.replace(/\/$/, "");
+
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("bad protocol");
+    }
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    throw new Error(
+      `NEXT_PUBLIC_SITE_URL is invalid (“${raw}”). Set it to https://gem-mint-teal.vercel.app with no quotes, then redeploy.`
+    );
+  }
+}
+
+export function isValidEmail(value: string | undefined | null): value is string {
+  if (!value) return false;
+  const email = value.trim();
+  // Practical email check — empty/garbage emails make Stripe throw pattern errors.
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }

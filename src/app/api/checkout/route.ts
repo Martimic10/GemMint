@@ -4,6 +4,7 @@ import { verifyFirebaseIdToken } from "@/lib/firebase-admin";
 import {
   getStripe,
   isStripeConfigured,
+  isValidEmail,
   requirePackWithPrice,
   siteUrl,
 } from "@/lib/stripe";
@@ -63,14 +64,16 @@ export async function POST(request: Request) {
     const { pack, priceId } = requirePackWithPrice(parsed.data.packId);
     const origin = siteUrl();
     const stripe = getStripe();
+    const successUrl = `${origin}/dashboard?billing=success&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${origin}/dashboard?billing=cancelled`;
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${origin}/dashboard?billing=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/dashboard?billing=cancelled`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       client_reference_id: uid,
-      customer_email: email,
+      ...(isValidEmail(email) ? { customer_email: email.trim() } : {}),
       metadata: {
         firebaseUid: uid,
         packId: pack.id,
@@ -99,11 +102,23 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Checkout error:", error);
-    const message =
+    let message =
       error instanceof Error ? error.message : "Could not start checkout.";
-    // Stripe often returns "No such price: 'price_xxx'" for test/live mismatches.
+
+    // Stripe SDK errors often nest the useful text.
+    if (error && typeof error === "object" && "raw" in error) {
+      const raw = (error as { raw?: { message?: string } }).raw;
+      if (raw?.message) message = raw.message;
+    }
+    if (message === "The string did not match the expected pattern.") {
+      message =
+        "Checkout rejected a URL, email, or Price ID format. Confirm NEXT_PUBLIC_SITE_URL is https://gem-mint-teal.vercel.app (no quotes) and each STRIPE_PRICE_* value is a price_… ID from the same mode as STRIPE_SECRET_KEY, then redeploy.";
+    }
+
     const status =
-      message.includes("Price ID") || message.includes("No such price")
+      message.includes("Price ID") ||
+      message.includes("No such price") ||
+      message.includes("NEXT_PUBLIC_SITE_URL")
         ? 400
         : 500;
     return NextResponse.json({ error: message }, { status });
