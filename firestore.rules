@@ -1,0 +1,62 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function creditsNotIncreased() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let prevCredits = 'credits' in before ? before.credits : 0;
+      let nextCredits = 'credits' in after ? after.credits : prevCredits;
+      let prevLot = 'lotCredits' in before ? before.lotCredits : 0;
+      let nextLot = 'lotCredits' in after ? after.lotCredits : prevLot;
+      let prevPurchased = 'totalPurchased' in before ? before.totalPurchased : 0;
+      let nextPurchased = 'totalPurchased' in after ? after.totalPurchased : prevPurchased;
+      let prevLotPurchased = 'totalLotPurchased' in before ? before.totalLotPurchased : 0;
+      let nextLotPurchased = 'totalLotPurchased' in after ? after.totalLotPurchased : prevLotPurchased;
+      // Peak defaults to current credits when missing (legacy docs).
+      let prevPeak = 'creditBalancePeak' in before ? before.creditBalancePeak : prevCredits;
+      let nextPeak = 'creditBalancePeak' in after ? after.creditBalancePeak : prevPeak;
+      return nextCredits <= prevCredits
+        && nextLot <= prevLot
+        && nextPurchased <= prevPurchased
+        && nextLotPurchased <= prevLotPurchased
+        && nextPeak <= prevPeak;
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      // Create account docs (free starter credit, profile fields).
+      allow create: if isOwner(uid);
+      // Clients may consume credits / update profile, but cannot grant themselves credits.
+      // Stripe webhooks use Admin SDK (bypasses rules) to increase balances.
+      allow update: if isOwner(uid) && creditsNotIncreased();
+      allow delete: if isOwner(uid);
+
+      // Purchases are written only by Stripe webhook (Admin SDK).
+      match /purchases/{purchaseId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /usages/{usageId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /grades/{gradeId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /reports/{reportId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /lots/{lotId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+  }
+}

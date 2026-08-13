@@ -1,0 +1,38 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Logo } from "@/components/layout/logo";
+import { Container } from "@/components/ui/container";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+};
+
+export default function PrivacyPage() {
+  return (
+    <main className="min-h-screen">
+      <header className="border-b border-border">
+        <Container className="flex h-16 items-center">
+          <Link href="/">
+            <Logo />
+          </Link>
+        </Container>
+      </header>
+      <Container className="max-w-3xl py-16">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          Privacy Policy
+        </h1>
+        <p className="mt-4 text-muted leading-relaxed">
+          GemMint respects your privacy. Card images uploaded for grading are
+          processed for analysis and are not sold to third parties. A full
+          privacy policy will be published before public launch.
+        </p>
+        <Link
+          href="/"
+          className="mt-8 inline-block text-sm font-semibold text-emerald hover:text-emerald-dark"
+        >
+          ← Back to home
+        </Link>
+      </Container>
+    </main>
+  );
+}
