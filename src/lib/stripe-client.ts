@@ -21,7 +21,11 @@ export async function startStripeCheckout(
     },
     body: JSON.stringify({ packId }),
   });
-  const data = (await res.json()) as { url?: string; sessionId?: string; error?: string };
+  const data = (await res.json()) as {
+    url?: string;
+    sessionId?: string;
+    error?: string;
+  };
   if (!res.ok || !data.url || !data.sessionId) {
     throw new Error(data.error || "Could not start Stripe Checkout.");
   }

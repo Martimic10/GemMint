@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Stripe is not configured yet. Add STRIPE_SECRET_KEY and Price IDs to .env.local.",
+            "Stripe is not configured on the server. Add STRIPE_SECRET_KEY (and Price IDs) in Vercel env, then redeploy.",
         },
         { status: 503 }
       );
@@ -43,9 +43,13 @@ export async function POST(request: Request) {
       const decoded = await verifyFirebaseIdToken(token);
       uid = decoded.uid;
       email = decoded.email;
-    } catch {
+    } catch (authError) {
+      console.error("Checkout auth failed:", authError);
       return NextResponse.json(
-        { error: "Invalid or expired session. Sign in again." },
+        {
+          error:
+            "Could not verify your login with Firebase Admin. Check FIREBASE_ADMIN_PRIVATE_KEY / CLIENT_EMAIL on Vercel (no extra quotes; keep \\n in the private key), then redeploy.",
+        },
         { status: 401 }
       );
     }
@@ -97,7 +101,11 @@ export async function POST(request: Request) {
     console.error("Checkout error:", error);
     const message =
       error instanceof Error ? error.message : "Could not start checkout.";
-    const status = message.includes("Price ID") ? 400 : 500;
+    // Stripe often returns "No such price: 'price_xxx'" for test/live mismatches.
+    const status =
+      message.includes("Price ID") || message.includes("No such price")
+        ? 400
+        : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

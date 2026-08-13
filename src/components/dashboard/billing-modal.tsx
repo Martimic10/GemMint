@@ -152,13 +152,11 @@ export function BillingModal({
     setPhase("checkout");
     setError(null);
 
-    const ok = await startCheckout(pack.id);
-    if (!ok) {
+    const result = await startCheckout(pack.id);
+    if (!result.ok) {
       setPurchasing(null);
       setPhase("packs");
-      setError(
-        "Could not open Stripe Checkout. Check that Stripe keys and Price IDs are configured, then try again."
-      );
+      setError(result.error);
     }
   }
 

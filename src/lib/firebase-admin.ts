@@ -21,13 +21,20 @@ function getAdminApp(): App {
     );
   }
 
-  // Support escaped newlines from .env files
+  // Vercel / .env often wrap values in quotes or escape newlines as \n
+  privateKey = privateKey.trim();
+  if (
+    (privateKey.startsWith('"') && privateKey.endsWith('"')) ||
+    (privateKey.startsWith("'") && privateKey.endsWith("'"))
+  ) {
+    privateKey = privateKey.slice(1, -1);
+  }
   privateKey = privateKey.replace(/\\n/g, "\n");
 
   return initializeApp({
     credential: cert({
-      projectId,
-      clientEmail,
+      projectId: projectId.trim(),
+      clientEmail: clientEmail.trim(),
       privateKey,
     }),
   });

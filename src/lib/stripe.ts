@@ -5,12 +5,24 @@ import { ALL_PURCHASE_OPTIONS, getScanPack } from "@/lib/scan-packs";
 
 let stripeSingleton: Stripe | null = null;
 
+function cleanEnv(value: string | undefined | null): string {
+  if (!value) return "";
+  let v = value.trim();
+  if (
+    (v.startsWith('"') && v.endsWith('"')) ||
+    (v.startsWith("'") && v.endsWith("'"))
+  ) {
+    v = v.slice(1, -1).trim();
+  }
+  return v;
+}
+
 export function isStripeConfigured(): boolean {
-  return Boolean(process.env.STRIPE_SECRET_KEY?.trim());
+  return Boolean(cleanEnv(process.env.STRIPE_SECRET_KEY));
 }
 
 export function getStripe(): Stripe {
-  const key = process.env.STRIPE_SECRET_KEY?.trim();
+  const key = cleanEnv(process.env.STRIPE_SECRET_KEY);
   if (!key) {
     throw new Error(
       "Missing STRIPE_SECRET_KEY. Add it to .env.local to enable Checkout."
@@ -36,9 +48,9 @@ const PRICE_ENV_BY_PACK: Record<ScanPackId, string> = {
 /** Resolve Stripe Price ID from env (preferred) or pack.stripePriceId. */
 export function resolveStripePriceId(pack: ScanPack): string | null {
   const envName = PRICE_ENV_BY_PACK[pack.id];
-  const fromEnv = envName ? process.env[envName]?.trim() : "";
+  const fromEnv = envName ? cleanEnv(process.env[envName]) : "";
   if (fromEnv) return fromEnv;
-  return pack.stripePriceId?.trim() || null;
+  return cleanEnv(pack.stripePriceId) || null;
 }
 
 export function getPackForStripePriceId(priceId: string): ScanPack | undefined {

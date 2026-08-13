@@ -114,9 +114,9 @@ export function LotPricerView({ onGoBilling, onComplete }: LotPricerViewProps) {
     setBuying(true);
     setError(null);
     try {
-      const ok = await startCheckout("lot-price");
-      if (!ok) {
-        setError("Could not open Stripe Checkout. Try Billing instead.");
+      const result = await startCheckout("lot-price");
+      if (!result.ok) {
+        setError(result.error || "Could not open Stripe Checkout. Try Billing instead.");
         onGoBilling?.();
       }
     } finally {

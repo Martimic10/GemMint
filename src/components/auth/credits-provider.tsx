@@ -67,7 +67,7 @@ interface CreditsContextValue {
   }) => Promise<boolean>;
   purchasePack: (packId: ScanPackId) => Promise<CreditPurchase | null>;
   /** Redirects to Stripe Checkout for the given pack. */
-  startCheckout: (packId: ScanPackId) => Promise<boolean>;
+  startCheckout: (packId: ScanPackId) => Promise<{ ok: true } | { ok: false; error: string }>;
   /** Reload ledger from Firestore (e.g. after Checkout return). */
   refreshCredits: () => Promise<void>;
   /** Confirm + fulfill a Checkout session id after redirect. */
@@ -188,14 +188,25 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
   const startCheckout = useCallback(async (packId: ScanPackId) => {
     const uid = uidRef.current;
     const pack = getScanPack(packId);
-    if (!uid || !pack) return false;
+    if (!uid || !pack) {
+      return {
+        ok: false as const,
+        error: !uid ? "Sign in required to purchase credits." : "Unknown pack.",
+      };
+    }
     try {
       const { url } = await startStripeCheckout(packId);
       window.location.assign(url);
-      return true;
+      return { ok: true as const };
     } catch (error) {
       console.error("Checkout failed:", error);
-      return false;
+      return {
+        ok: false as const,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Could not start Stripe Checkout.",
+      };
     }
   }, []);
 
@@ -227,8 +238,8 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
 
   /** @deprecated Client-side grants are disabled. Use startCheckout. */
   const purchasePack = useCallback(async (packId: ScanPackId) => {
-    const ok = await startCheckout(packId);
-    return ok ? null : null;
+    const result = await startCheckout(packId);
+    return result.ok ? null : null;
   }, [startCheckout]);
 
   const addCredits = useCallback(async (amount: number) => {
